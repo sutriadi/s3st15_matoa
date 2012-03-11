@@ -206,6 +206,9 @@ $sysconf['quick_return'] = true;
 /* LOAN LIMIT OVERRIDE */
 $sysconf['loan_limit_override'] = false;
 
+/* IGNORE HOLIDAYS FINE CALCULATION */
+$sysconf['ignore_holidays_fine_calc'] = false;
+
 /* LOAN DATE CHANGE IN CIRCULATION */
 $sysconf['allow_loan_date_change'] = false;
 
