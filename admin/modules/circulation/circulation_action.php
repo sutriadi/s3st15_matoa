@@ -236,6 +236,9 @@ if (isset($_GET['removeID'])) {
 
 // quick return proccess
 if (isset($_POST['quickReturnID']) AND $_POST['quickReturnID']) {
+    // modified by Indra Sutriadi
+    $clear_loan_data = in_array(trim(strtolower($_POST['quickReturnID'])), array('cls', 'clear', 'clr')) ? true : false;
+
     // get loan data
     $loan_info_q = $dbs->query("SELECT l.*,m.member_id,m.member_name,b.title FROM loan AS l
         LEFT JOIN item AS i ON i.item_code=l.item_code
@@ -245,6 +248,23 @@ if (isset($_POST['quickReturnID']) AND $_POST['quickReturnID']) {
     if ($loan_info_q->num_rows < 1) {
         echo '<div class="errorBox">'.__('This is item already returned or not exists in loan database').'</div>';
     } else {
+
+		/* modified by Indra Sutriadi */		
+		// menghapus sesi data pengembalian
+		if($clear_loan_data === true)
+		{
+			unset($_SESSION['loan_data']);
+			echo '<div>'.__('Data cleared!').'</div>';
+			exit();
+		}
+
+		// membuat sesi untuk data pengembalian
+		if ( ! isset($_SESSION['loan_data']))
+		{
+			$_SESSION['loan_data'] = array();
+		}
+		/* end of modification */
+		
         $return_date = date('Y-m-d');
         // get data
         $loan_d = $loan_info_q->fetch_assoc();
@@ -252,11 +272,79 @@ if (isset($_POST['quickReturnID']) AND $_POST['quickReturnID']) {
         $circulation = new circulation($dbs, $loan_d['member_id']);
         // check for overdue
         $overdue = $circulation->countOverdueValue($loan_d['loan_id'], $return_date);
-        // check overdue
+        
+        /* modified by Indra Sutriadi */
+        $member_id = $loan_d['member_id'];
+		if ( ! isset($_SESSION['loan_data'][$member_id]))
+		{
+			$_SESSION['loan_data'][$member_id] = array(
+				'items_until_now' => array($loan_d['item_code'] . ' - ' . $loan_d['title']),
+				'total_now' => 0,
+			);
+			
+			$loan_list_query = $dbs->query(sprintf("SELECT L.loan_id, b.title, c.coll_type_name,
+				i.item_code, L.loan_date, L.due_date, L.return_date, L.renewed
+				FROM loan AS L
+				LEFT JOIN item AS i ON L.item_code=i.item_code
+				LEFT JOIN mst_coll_type AS ct ON i.coll_type_id=ct.coll_type_id
+				LEFT JOIN member AS m ON L.member_id=m.member_id
+				LEFT JOIN biblio AS b ON i.biblio_id=b.biblio_id
+				LEFT JOIN mst_coll_type AS c ON i.coll_type_id=c.coll_type_id
+				WHERE L.is_lent=1 AND L.is_return=0 AND L.member_id='%s'", $member_id));
+			$items = array();
+			$total_fines = 0;
+			while ($loan_list_data = $loan_list_query->fetch_assoc())
+			{
+				$overdue_all = $circulation->countOverdueValue($loan_list_data['loan_id'], $return_date);
+				$items[$loan_list_data['item_code']] = $loan_list_data['item_code'] . ' - ' . $loan_list_data['title'];
+				if ($overdue_all)
+				{
+					$total_fines += $overdue_all['value'];
+				}
+			}
+			
+			$_SESSION['loan_data'][$member_id]['total'] = $total_fines;
+			$_SESSION['loan_data'][$member_id]['items'] = $items;
+		}
+		else
+		{
+			$_SESSION['loan_data'][$member_id]['items_until_now'] = array_merge(
+				$_SESSION['loan_data'][$member_id]['items_until_now'],
+				array($_POST['quickReturnID'] . ' - ' . $loan_d['title'])
+			);
+		}		
+		
+		/* end modification */
+
+		// check overdue
         if ($overdue) {
             $msg = str_replace('{overdueDays}', $overdue['days'],__('OVERDUED for {overdueDays} days(s) with fines value of')); //mfc
             $loan_d['title'] .= '<div style="color: red; font-weight: bold;">'.$msg.$overdue['value'].'</div>';
+            
+            /* modified by Indra Sutriadi */
+			$_SESSION['loan_data'][$member_id]['total_now'] += $overdue['value'];
+            /* end of modification */
+			
         }
+        
+		/* modified by Indra Sutriadi */
+        unset($_SESSION['loan_data'][$member_id]['items'][$loan_d['item_code']]); // patched by Indra Sutriadi
+        
+		$loan_d['title'] .= '<div style="color: black;">'.__('Total items until current item.')
+			.'<ol style="font-weight: bold;"><li>'
+			.implode('</li><li>', $_SESSION['loan_data'][$member_id]['items_until_now'])
+			.'</li></ol></div>';
+		if (count($_SESSION['loan_data'][$member_id]['items']) > 0)
+		{
+			$loan_d['title'] .= '<div style="color: red;">'.__('Remain item(s) should be returned:<br />')
+				.'<ol style="font-weight: bold;"><li>'
+				.implode('</li><li>', $_SESSION['loan_data'][$member_id]['items'])
+				.'</li></ol></div>';
+		}
+		$loan_d['title'] .= '<div style="color: red; font-weight: bold; padding-left: 40px;">'.__('Total fines until current item ').$_SESSION['loan_data'][$member_id]['total_now'].'</div>';
+		$loan_d['title'] .= '<div style="color: red; font-weight: bold; padding-left: 40px;">'.__('Total fines of all items ').$_SESSION['loan_data'][$member_id]['total'].'</div>';
+        /* end of modification */
+
         // return item
         $return_status = $circulation->returnItem($loan_d['loan_id']);
         if ($return_status === ITEM_RESERVED) {

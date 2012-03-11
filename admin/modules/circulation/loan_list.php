@@ -98,6 +98,7 @@ if (isset($_SESSION['memberID'])) {
     // row number init
     $row = 1;
     $is_overdue = false;
+    $overdue_total = 0; // modified by Indra Sutriadi
     while ($loan_list_data = $loan_list_query->fetch_assoc()) {
         // alternate the row color
         $row_class = ($row%2 == 0)?'alterCell':'alterCell2';
@@ -128,6 +129,7 @@ if (isset($_SESSION['memberID'])) {
         if ($overdue) {
             $is_overdue = true;
             $loan_list_data['title'] .= '<div style="color: red; font-weight: bold;">'.__('OVERDUED for').' '.$overdue['days'].' '.__('days(s) with fines value').' '.$overdue['value'].'</div>'; //mfc
+            $overdue_total += $overdue['value']; // modified by Indra Sutriadi
         }
         // row colums array
         $fields = array(
@@ -152,6 +154,20 @@ if (isset($_SESSION['memberID'])) {
 
         $row++;
     }
+    
+    /* modified by Indra Sutriadi */
+    if ($overdue_total != 0)
+    {
+		$loan_list->appendTableRow(
+			array(
+				'',
+				'',
+				'<div style="color: red; font-weight: bold;">'.__('Total').'</div>',
+				'<div style="color: red; font-weight: bold;">'.$overdue_total.'</div>'
+			)
+		);
+	}
+	/* end of modification */
 
     // show reservation alert if any
     if (isset($_GET['reserveAlert']) AND !empty($_GET['reserveAlert'])) {
