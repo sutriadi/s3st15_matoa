@@ -98,7 +98,12 @@ if (isset($_SESSION['memberID'])) {
     // row number init
     $row = 1;
     $is_overdue = false;
-    $overdue_total = 0; // modified by Indra Sutriadi
+    /* modified by Indra Sutriadi */
+    $overdue_total = 0;
+    $circulation->ignore_holidays_fine_calc = $sysconf['ignore_holidays_fine_calc'];
+    $circulation->holiday_dayname = $_SESSION['holiday_dayname'];
+    $circulation->holiday_date = $_SESSION['holiday_date'];
+    /* end of modification */
     while ($loan_list_data = $loan_list_query->fetch_assoc()) {
         // alternate the row color
         $row_class = ($row%2 == 0)?'alterCell':'alterCell2';

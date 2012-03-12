@@ -49,7 +49,7 @@ class circulation extends member
     public $holiday_dayname = array('Sun');
     public $holiday_date = array();
     public $loan_have_overdue = false;
-    public $ignore_holidays_fine_calc = false;
+    public $ignore_holidays_fine_calc = false; // modified by Indra Sutriadi
 
     /**
      * class constructor
